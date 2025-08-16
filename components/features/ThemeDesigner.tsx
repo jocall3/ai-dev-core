@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { SparklesIcon, ArrowDownTrayIcon } from '../icons.tsx';
 import { generateThemeFromDescription } from '../../services/geminiService.ts';
 import type { ColorTheme } from '../../types.ts';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
+import { LoadingSpinner } from '../shared/index.tsx';
 import { HexColorPicker } from 'react-colorful';
 import { downloadFile } from '../../services/fileUtils.ts';
 

@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { GitBranchIcon, ArrowDownTrayIcon } from '../icons.tsx';
 import { generateChangelogFromLogStream } from '../../services/geminiService.ts';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
-import { MarkdownRenderer } from '../shared/MarkdownRenderer.tsx';
+import { LoadingSpinner, MarkdownRenderer } from '../shared/index.tsx';
 import { downloadFile } from '../../services/fileUtils.ts';
 
 const exampleLog = `* commit 3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r (HEAD -> main, origin/main)

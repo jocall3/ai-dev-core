@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { convertJsonToXbrlStream } from '../../services/geminiService.ts';
 import { XbrlConverterIcon } from '../icons.tsx';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
-import { MarkdownRenderer } from '../shared/MarkdownRenderer.tsx';
+import { LoadingSpinner, MarkdownRenderer } from '../shared/index.tsx';
 
 const exampleJson = `{
   "company": "ExampleCorp",

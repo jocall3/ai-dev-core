@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
+      server: {
+        // Disable CORS to mitigate vulnerability where malicious sites can request source files.
+        cors: false,
+      },
       build: {
         outDir: 'web', // Emit assets to a 'web' directory.
         sourcemap: true, // Enable source maps for easier debugging in production.

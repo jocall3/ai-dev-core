@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { generateRegExStream } from '../../services/geminiService.ts';
 import { BeakerIcon } from '../icons.tsx';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
+import { LoadingSpinner } from '../shared/index.tsx';
 
 const commonPatterns = [
     { name: 'Email', pattern: '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g' },

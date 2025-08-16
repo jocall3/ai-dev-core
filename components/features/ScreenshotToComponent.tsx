@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { generateComponentFromImageStream } from '../../services/geminiService.ts';
 import { PhotoIcon, ArrowDownTrayIcon } from '../icons.tsx';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
-import { MarkdownRenderer } from '../shared/MarkdownRenderer.tsx';
+import { LoadingSpinner, MarkdownRenderer } from '../shared/index.tsx';
 import { fileToBase64, blobToDataURL, downloadFile } from '../../services/fileUtils.ts';
 
 export const ScreenshotToComponent: React.FC = () => {

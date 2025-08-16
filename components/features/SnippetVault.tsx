@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { LockClosedIcon, SparklesIcon, TrashIcon, ClipboardDocumentIcon, ArrowDownTrayIcon } from '../icons.tsx';
 import { useLocalStorage } from '../../hooks/useLocalStorage.ts';
 import { enhanceSnippetStream } from '../../services/geminiService.ts';
-import { LoadingSpinner } from '../shared/LoadingSpinner.tsx';
+import { LoadingSpinner } from '../shared/index.tsx';
 import { downloadFile } from '../../services/fileUtils.ts';
 
 interface Snippet {
