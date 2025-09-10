@@ -2,6 +2,6 @@
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "0",
+  "name": "app",
   "description": ""
 }

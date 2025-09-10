@@ -1,13 +1,12 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import { GlobalStateProvider } from './contexts/GlobalStateContext.tsx';
-import './index.css';
+import App from './src/App.tsx';
+import { GlobalStateProvider } from './src/contexts/GlobalStateContext.tsx';
+import './src/index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
