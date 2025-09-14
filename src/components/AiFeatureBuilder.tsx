@@ -3,6 +3,7 @@ import type { GeneratedFile } from '../types.ts';
 import { generateFeature, generateUnitTestsStream, generateCommitMessageStream, saveFile, getAllFiles, clearAllFiles } from '../services/index.ts';
 import { CpuChipIcon, DocumentTextIcon, BeakerIcon, GitBranchIcon } from './icons.tsx';
 import { LoadingSpinner, MarkdownRenderer } from './shared/index.tsx';
+import { ActionManager } from './ActionManager.tsx';
 
 type ActiveTab = 'CODE' | 'TESTS' | 'COMMIT';
 
@@ -80,7 +81,7 @@ export const AiFeatureBuilder: React.FC = () => {
                 <h1 className="text-xl font-bold flex items-center"><CpuChipIcon /><span className="ml-3">AI Feature Builder</span></h1>
             </header>
 
-            <div className="flex-grow flex min-h-0">
+            <div className="flex-grow flex min-h-0 relative">
                 <aside className="w-64 bg-surface border-r border-border p-4 flex flex-col">
                     <h2 className="text-sm font-semibold text-text-secondary mb-2">Generated Files</h2>
                     <div className="overflow-y-auto space-y-1">
@@ -112,6 +113,7 @@ export const AiFeatureBuilder: React.FC = () => {
                          {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
                     </div>
                 </main>
+                {generatedFiles.length > 0 && <ActionManager />}
             </div>
         </div>
     );

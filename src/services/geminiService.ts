@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, GenerateContentResponse, FunctionDeclaration, FunctionCall, Part } from "@google/genai";
-import type { GeneratedFile, StructuredPrSummary, StructuredExplanation, ColorTheme, RepoTemplate } from '../types.ts';
+import type { GeneratedFile, StructuredPrSummary, StructuredExplanation, ColorTheme, RepoTemplate, CertificateDetails } from '../types.ts';
 import { logError } from './telemetryService.ts';
 
 const API_KEY = process.env.API_KEY;
@@ -207,8 +207,8 @@ export const analyzeConcurrencyStream = (code: string) => streamContent(
 );
 
 export const convertJsonToXbrlStream = (json: string) => streamContent(
-    `Convert the following JSON object into a simplified XBRL-like XML format. Respond with only the XML content, without any markdown formatting.\n\nJSON:\n${json}`,
-    "You are an expert in data formats. You convert JSON to a simplified, human-readable XBRL-style XML. You only output valid XML."
+    `You are an expert in financial data formats. Convert the following JSON object into a standards-compliant XBRL XML document. Infer appropriate namespaces and element tags based on common financial reporting schemas like US-GAAP if applicable. Respond with only the valid XML content in a markdown block.\n\nJSON:\n${json}`,
+    "You are an expert in data formats. You convert JSON to a standards-compliant XBRL-style XML. You only output valid XML."
 );
 
 export const generateChangelogFromLogStream = (log: string) => streamContent(
@@ -411,6 +411,65 @@ export const generateChatbotSystemPromptStream = (knowledgeBase: string) => stre
     "You are an expert in designing prompts for large language models."
 );
 
+// New function for SASS
+export const compileSassStream = (scss: string) => streamContent(
+    `You are an expert SASS/SCSS compiler. Convert the following SCSS code to CSS. Your response should contain ONLY the valid CSS code, without any explanation or markdown fences.
+    
+    SCSS Input:
+    \`\`\`scss
+    ${scss}
+    \`\`\`
+    `,
+    "You are a SASS/SCSS compiler. You only output valid CSS code."
+);
+
+
+// New function for SSL certs
+export const parseCertificateDetails = (pem: string): Promise<CertificateDetails> => {
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            subject: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
+            issuer: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
+            validFrom: { type: Type.STRING, description: 'The start date of validity in UTC format.' },
+            validTo: { type: Type.STRING, description: 'The end date of validity in UTC format.' },
+            serialNumber: { type: Type.STRING }
+        },
+        required: ["subject", "issuer", "validFrom", "validTo", "serialNumber"]
+    };
+    return generateJson<CertificateDetails>(
+        `Parse the following PEM-encoded SSL certificate and provide its key details.\n\nCertificate:\n${pem}`,
+        "You are an expert in parsing security certificates. Respond with only the requested JSON object.",
+        schema
+    );
+};
+
+export const generateDriveLabelRequest = (prompt: string): Promise<any> => {
+    const driveLabelSchema = {
+        type: Type.OBJECT,
+        properties: {
+            properties: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING, description: "The title of the label to be applied." }
+                },
+                 required: ['title']
+            },
+            updateMask: {
+                type: Type.STRING,
+                description: "The fields to update, typically 'properties.title'."
+            }
+        },
+        required: ["properties", "updateMask"]
+    };
+    return generateJson<any>(
+        `Based on the user's request, construct a JSON object that would be used to update a Google Drive Label. The JSON should conform to the provided schema for a 'DeltaUpdateLabelRequest'. Pay close attention to the properties the user wants to set.\n\nUser Request: "${prompt}"`,
+        "You are an AI assistant that translates natural language into structured JSON API requests for the Google Drive Labels API. You only output the valid JSON object.",
+        driveLabelSchema
+    );
+};
+
+
 // --- Unified Feature Functions (JSON) ---
 
 export const getInferenceFunction = async (prompt: string, functionDeclarations: FunctionDeclaration[], knowledgeBase: string): Promise<CommandResponse> => {
@@ -419,154 +478,4 @@ export const getInferenceFunction = async (prompt: string, functionDeclarations:
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
-                systemInstruction: `You are the AI command center for a developer toolkit. Your goal is to understand the user's request and call the appropriate function to activate a tool. Use the provided knowledge base to understand what each tool does before making a function call. If the user's request is a general question or doesn't map to a specific tool, respond with a helpful text answer.\n\nKnowledge Base:\n${knowledgeBase}`,
-                tools: [{ functionDeclarations }],
-            }
-        });
-
-        const functionCalls = response.candidates?.[0]?.content?.parts?.reduce<FunctionCall[]>((acc, part) => {
-            if ('functionCall' in part && part.functionCall) {
-                acc.push(part.functionCall);
-            }
-            return acc;
-        }, []) ?? [];
-
-        return { text: response.text, functionCalls };
-        
-    } catch (error) {
-        console.error("Error inferring function:", error);
-        logError(error as Error, { prompt });
-        throw error;
-    }
-}
-
-export const generateFeature = (prompt: string): Promise<GeneratedFile[]> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            files: {
-                type: Type.ARRAY,
-                description: "An array of files to be generated for the feature.",
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        filePath: { type: Type.STRING, description: "The full path for the file, e.g., 'src/components/MyComponent.tsx'." },
-                        content: { type: Type.STRING, description: "The complete code or content for the file." },
-                        description: { type: Type.STRING, description: "A brief description of what this file does." }
-                    },
-                    required: ["filePath", "content", "description"]
-                }
-            }
-        },
-        required: ["files"]
-    };
-
-    return generateJson<{ files: GeneratedFile[] }>(
-        `Generate the necessary files for the following feature: "${prompt}"`,
-        "You are an expert software engineer who generates complete, production-ready code files based on a feature description.",
-        schema
-    ).then(response => response.files);
-};
-
-export const generatePrSummaryStructured = (diff: string): Promise<StructuredPrSummary> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            title: { type: Type.STRING, description: "A concise, conventional commit style title for the pull request." },
-            summary: { type: Type.STRING, description: "A one-paragraph summary of the changes." },
-            changes: {
-                type: Type.ARRAY,
-                description: "A bulleted list of the key changes.",
-                items: { type: Type.STRING }
-            }
-        },
-        required: ["title", "summary", "changes"]
-    };
-    return generateJson<StructuredPrSummary>(
-        `Generate a structured pull request summary for the following diff:\n\n${diff}`,
-        "You are an expert programmer who writes excellent pull request summaries.",
-        schema
-    );
-};
-
-export const generateThemeFromDescription = (description: string): Promise<ColorTheme> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            primary: { type: Type.STRING, description: "The primary accent color (e.g., for buttons)." },
-            background: { type: Type.STRING, description: "The main page background color." },
-            surface: { type: Type.STRING, description: "The color for card backgrounds or surfaces on top of the main background." },
-            textPrimary: { type: Type.STRING, description: "The color for primary text like headings." },
-            textSecondary: { type: Type.STRING, description: "The color for secondary text like descriptions." }
-        },
-        required: ["primary", "background", "surface", "textPrimary", "textSecondary"]
-    };
-    return generateJson<ColorTheme>(
-        `Generate a UI color theme based on this description: "${description}"`,
-        "You are a UI/UX designer specializing in color theory. You only output valid hex color codes in the requested JSON format.",
-        schema
-    );
-};
-
-export const generateColorPalette = (baseColor: string): Promise<{ colors: string[] }> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            colors: {
-                type: Type.ARRAY,
-                description: "An array of 6 hex color codes, including the base color, that form a harmonious palette.",
-                items: { type: Type.STRING }
-            }
-        },
-        required: ["colors"]
-    };
-    return generateJson<{ colors: string[] }>(
-        `Generate a 6-color palette based on the color ${baseColor}.`,
-        "You are an expert color designer. You create beautiful, harmonious color palettes based on a single color.",
-        schema
-    );
-}
-
-export const generateRepoDetailsFromPrompt = (prompt: string): Promise<RepoTemplate> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            name: { type: Type.STRING, description: "A short, descriptive, URL-friendly name for the repository (e.g., 'recipe-app')." },
-            description: { type: Type.STRING, description: "A one-sentence description of the repository." }
-        },
-        required: ["name", "description"]
-    };
-    return generateJson<RepoTemplate>(
-        `Generate a repository name and description for the following project idea: "${prompt}"`,
-        "You are a helpful assistant for developers. You create concise and clear repository names and descriptions.",
-        schema
-    );
-};
-
-export interface CronParts {
-    minute: string; hour: string; dayOfMonth: string; month: string; dayOfWeek: string;
-}
-export const generateCronFromDescription = (description: string): Promise<CronParts> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            minute: { type: Type.STRING },
-            hour: { type: Type.STRING },
-            dayOfMonth: { type: Type.STRING },
-            month: { type: Type.STRING },
-            dayOfWeek: { type: Type.STRING }
-        },
-        required: ["minute", "hour", "dayOfMonth", "month", "dayOfWeek"]
-    };
-    return generateJson<CronParts>(
-        `Generate a cron expression from this description: "${description}"`,
-        "You are an expert in cron expressions. You only output the requested JSON.",
-        schema
-    );
-};
-
-// --- For AI Command Center ---
-export interface CommandResponse {
-    text: string;
-    functionCalls?: FunctionCall[];
-}
+                systemInstruction: `You are the AI command center for a developer toolkit. Your goal is to understand the user's request and call the appropriate function to activate a tool. Use the provided knowledge

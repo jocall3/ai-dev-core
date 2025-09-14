@@ -3,8 +3,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { useGlobalState } from './contexts/GlobalStateContext.tsx';
 import { logEvent } from './services/telemetryService.ts';
 import { ALL_FEATURES, FEATURES_MAP } from './components/index.ts';
-import type { ViewType, FeatureId, SidebarItem } from './types.ts';
-import { DownloadManager } from './components/DownloadManager.tsx';
+import type { ViewType, SidebarItem } from './types.ts';
 import { LeftSidebar } from './components/LeftSidebar.tsx';
 import { StatusBar } from './components/StatusBar.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -12,6 +11,7 @@ import { SettingsView } from './components/SettingsView.tsx';
 import { Cog6ToothIcon, HomeIcon } from './components/icons.tsx';
 import { AiCommandCenter } from './components/AiCommandCenter.tsx';
 import { LoadingIndicator } from './components/shared/index.tsx';
+import { handleGitHubCallback, checkSession } from './services/authService.ts';
 
 
 interface LocalStorageConsentModalProps {
@@ -50,9 +50,10 @@ const LocalStorageConsentModal: React.FC<LocalStorageConsentModalProps> = ({ onA
 
 const App: React.FC = () => {
   const { state, dispatch } = useGlobalState();
-  const { activeView, viewProps, hiddenFeatures } = state;
+  const { activeView, viewProps, hiddenFeatures, token } = state;
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     try {
@@ -64,6 +65,34 @@ const App: React.FC = () => {
         console.warn("Could not access localStorage.", e);
     }
   }, []);
+
+  useEffect(() => {
+    const authenticate = async () => {
+        setIsAuthLoading(true);
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+
+        if (code) {
+            // Handle OAuth callback
+            try {
+                const { user, token } = await handleGitHubCallback(code);
+                dispatch({ type: 'LOGIN', payload: { user, token } });
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (error) {
+                console.error("GitHub callback failed", error);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        } else if (token) {
+            // Check existing session
+            const session = await checkSession(token);
+            if (!session) {
+                dispatch({ type: 'LOGOUT' });
+            }
+        }
+        setIsAuthLoading(false);
+    };
+    authenticate();
+  }, [dispatch, token]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -120,6 +149,10 @@ const App: React.FC = () => {
       return FEATURES_MAP.get(activeView as string)?.component ?? AiCommandCenter;
   }, [activeView]);
   
+  if (isAuthLoading && new URLSearchParams(window.location.search).get('code')) {
+    return <div className="h-screen w-screen flex items-center justify-center bg-background text-text-primary"><LoadingIndicator /> <span className="ml-2">Authenticating with GitHub...</span></div>;
+  }
+  
   return (
     <div className="h-screen w-screen font-sans overflow-hidden bg-background">
         {showConsentModal && <LocalStorageConsentModal onAccept={handleAcceptConsent} onDecline={handleDeclineConsent} />}
@@ -135,7 +168,6 @@ const App: React.FC = () => {
                                 </div>
                             </Suspense>
                         </ErrorBoundary>
-                        <DownloadManager />
                     </main>
                     <StatusBar bgImageStatus="loaded" />
                 </div>

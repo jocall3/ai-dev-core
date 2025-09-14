@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { CodePerformanceAnalyzerIcon } from './icons.tsx';
 import { analyzeCodePerformanceStream } from '../services/geminiService.ts';
 import { LoadingSpinner, MarkdownRenderer } from './shared/index.tsx';
@@ -15,14 +15,14 @@ const exampleCode = `const findDuplicates = (arr) => {
   return duplicates;
 };`;
 
-export const CodePerformanceAnalyzer: React.FC = () => {
-    const [code, setCode] = useState(exampleCode);
+export const CodePerformanceAnalyzer: React.FC<{ initialCode?: string }> = ({ initialCode }) => {
+    const [code, setCode] = useState(initialCode || exampleCode);
     const [analysis, setAnalysis] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleAnalyze = useCallback(async () => {
-        if (!code.trim()) {
+    const handleAnalyze = useCallback(async (codeToAnalyze: string) => {
+        if (!codeToAnalyze.trim()) {
             setError('Please enter some code to analyze.');
             return;
         }
@@ -30,7 +30,7 @@ export const CodePerformanceAnalyzer: React.FC = () => {
         setError('');
         setAnalysis('');
         try {
-            const stream = analyzeCodePerformanceStream(code);
+            const stream = analyzeCodePerformanceStream(codeToAnalyze);
             let fullResponse = '';
             for await (const chunk of stream) {
                 fullResponse += chunk;
@@ -41,7 +41,14 @@ export const CodePerformanceAnalyzer: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [code]);
+    }, []);
+    
+    useEffect(() => {
+        if (initialCode) {
+            setCode(initialCode);
+            handleAnalyze(initialCode);
+        }
+    }, [initialCode, handleAnalyze]);
 
     return (
         <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 text-text-primary">
@@ -62,7 +69,7 @@ export const CodePerformanceAnalyzer: React.FC = () => {
                         className="flex-grow p-4 bg-surface border border-border rounded-md resize-none font-mono text-sm"
                     />
                      <button
-                        onClick={handleAnalyze}
+                        onClick={() => handleAnalyze(code)}
                         disabled={isLoading}
                         className="btn-primary mt-4 w-full flex items-center justify-center px-6 py-3"
                     >

@@ -3,7 +3,7 @@ import { useGlobalState } from '../contexts/GlobalStateContext.tsx';
 import type { FileNode } from '../types.ts';
 import { getRepoTree, getFileContent } from '../services/index.ts';
 import { LoadingSpinner } from './shared/index.tsx';
-import { FolderIcon, DocumentIcon } from './icons.tsx';
+import { FolderIcon, DocumentIcon, BeakerIcon, CodeExplainerIcon, CodeReviewBotIcon, CodePerformanceAnalyzerIcon, ConnectionsIcon } from './icons.tsx';
 
 // Recursive component to render the file tree
 const FileTree: React.FC<{ node: FileNode, onFileSelect: (path: string) => void, level?: number }> = ({ node, onFileSelect, level = 0 }) => {
@@ -46,9 +46,40 @@ const FileTree: React.FC<{ node: FileNode, onFileSelect: (path: string) => void,
     );
 };
 
+const ActionToolbar: React.FC<{ fileContent: string }> = ({ fileContent }) => {
+    const { dispatch } = useGlobalState();
+    
+    const actions = [
+        { id: 'ai-code-explainer', label: 'Explain', icon: <CodeExplainerIcon />, props: { initialCode: fileContent } },
+        { id: 'ai-unit-test-generator', label: 'Tests', icon: <BeakerIcon />, props: { initialCode: fileContent } },
+        { id: 'code-review-bot', label: 'Review', icon: <CodeReviewBotIcon />, props: { initialCode: fileContent } },
+        { id: 'code-performance-analyzer', label: 'Performance', icon: <CodePerformanceAnalyzerIcon />, props: { initialCode: fileContent } }
+    ];
+
+    const handleAction = (view: string, props: any) => {
+        dispatch({ type: 'SET_VIEW', payload: { view, props } });
+    };
+
+    return (
+        <div className="flex items-center gap-2 p-2 border-b border-border bg-surface mb-2 rounded-t-md">
+            {actions.map(action => (
+                <button
+                    key={action.id}
+                    onClick={() => handleAction(action.id, action.props)}
+                    className="flex items-center gap-1.5 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md"
+                    title={action.label}
+                >
+                    <div className="w-4 h-4">{action.icon}</div>
+                    {action.label}
+                </button>
+            ))}
+        </div>
+    );
+};
+
 export const ProjectExplorer: React.FC = () => {
     const { state, dispatch } = useGlobalState();
-    const { selectedRepo, projectFiles } = state;
+    const { isGithubConnected, selectedRepo, projectFiles } = state;
     const [isLoading, setIsLoading] = useState(false);
     const [activeFileContent, setActiveFileContent] = useState<string | null>(null);
     const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -88,6 +119,19 @@ export const ProjectExplorer: React.FC = () => {
             setIsLoading(false);
         }
     }, [selectedRepo]);
+    
+    if (!isGithubConnected) {
+         return (
+            <div className="h-full flex flex-col items-center justify-center text-center text-text-secondary p-4">
+                <ConnectionsIcon />
+                <h2 className="text-lg font-semibold mt-2">GitHub Connection Required</h2>
+                <p className="mb-4">Please connect your GitHub account in the 'Connections' hub to explore repositories.</p>
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: { view: 'connections' } })} className="btn-primary px-4 py-2">
+                    Go to Connections
+                </button>
+            </div>
+        );
+    }
 
     if (!selectedRepo) {
         return (
@@ -132,7 +176,10 @@ export const ProjectExplorer: React.FC = () => {
                  {error && activeFilePath && <div className="p-4 text-red-500">{error}</div>}
                  {!isLoading && activeFileContent !== null && (
                     <div className="h-full flex flex-col">
-                        <h3 className="font-mono text-sm mb-2 text-text-secondary flex-shrink-0">{activeFilePath}</h3>
+                        <div className="flex-shrink-0">
+                            <h3 className="font-mono text-sm mb-2 text-text-secondary">{activeFilePath}</h3>
+                            <ActionToolbar fileContent={activeFileContent} />
+                        </div>
                         <div className="flex-grow bg-surface rounded-md border border-border overflow-auto">
                             <pre className="p-4 text-sm whitespace-pre-wrap">
                                 <code>{activeFileContent}</code>

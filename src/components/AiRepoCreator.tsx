@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext.tsx';
 import { createRepo, generateRepoDetailsFromPrompt } from '../services/index.ts';
 import type { RepoTemplate, CreateRepoOptions } from '../types.ts';
-import { PlusCircleIcon, SparklesIcon, ChevronDownIcon } from './icons.tsx';
+import { PlusCircleIcon, SparklesIcon, ChevronDownIcon, ConnectionsIcon } from './icons.tsx';
 import { LoadingSpinner } from './shared/index.tsx';
 
 const Checkbox: React.FC<{ label: string, checked: boolean, onChange: (checked: boolean) => void, name: string }> = ({ label, checked, onChange, name }) => (
@@ -10,7 +10,8 @@ const Checkbox: React.FC<{ label: string, checked: boolean, onChange: (checked: 
 );
 
 export const AiRepoCreator: React.FC = () => {
-    const { dispatch } = useGlobalState();
+    const { state, dispatch } = useGlobalState();
+    const { isGithubConnected } = state;
     const [prompt, setPrompt] = useState('A new TypeScript project for a recipe sharing app.');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -67,8 +68,11 @@ export const AiRepoCreator: React.FC = () => {
         setIsCreating(true);
         setError('');
         try {
-            await createRepo(formState);
+            const newRepo = await createRepo(formState);
             alert(`Successfully created repository: ${formState.name}`);
+            if (state.user) {
+                dispatch({ type: 'SET_SELECTED_REPO', payload: { owner: newRepo.owner.login, repo: newRepo.name } });
+            }
             dispatch({ type: 'SET_VIEW', payload: { view: 'connections' } });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to create the repository.');
@@ -76,6 +80,19 @@ export const AiRepoCreator: React.FC = () => {
             setIsCreating(false);
         }
     };
+    
+    if (!isGithubConnected) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center text-center text-text-secondary p-4">
+                <ConnectionsIcon />
+                <h2 className="text-lg font-semibold mt-2">GitHub Connection Required</h2>
+                <p className="mb-4">Please connect your GitHub account in the 'Connections' hub to create repositories.</p>
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: { view: 'connections' } })} className="btn-primary px-4 py-2">
+                    Go to Connections
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full p-4 sm:p-6 lg:p-8 text-text-primary overflow-y-auto">
@@ -105,7 +122,7 @@ export const AiRepoCreator: React.FC = () => {
                         </div>
                          <div>
                             <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">Description</label>
-                            <input id="description" name="description" type="text" value={formState.description} onChange={handleChange} className="w-full p-2 bg-background border border-border rounded-md" />
+                            <input id="description" name="description" type="text" value={formState.description ?? ''} onChange={handleChange} className="w-full p-2 bg-background border border-border rounded-md" />
                         </div>
                         <div className="flex items-center gap-4"><Checkbox label="Private Repository" name="private" checked={!!formState.private} onChange={c => setFormState(p => ({...p, private: c}))} /></div>
                         
@@ -114,7 +131,7 @@ export const AiRepoCreator: React.FC = () => {
                              <div className="flex flex-col gap-2">
                                 <Checkbox label="Initialize with a README" name="auto_init" checked={!!formState.auto_init} onChange={c => setFormState(p => ({...p, auto_init: c}))} />
                                 <div className="flex items-center gap-2 text-sm"><label htmlFor="gitignore_template">.gitignore template:</label><input id="gitignore_template" name="gitignore_template" value={formState.gitignore_template} onChange={handleChange} className="p-1 bg-background border border-border rounded-md" placeholder="e.g., Node"/></div>
-                                <div className="flex items-center gap-2 text-sm"><label htmlFor="license_template">License template:</label><input id="license_template" name="license_template" value={formState.license_template} onChange={handleChange} className="p-1 bg-background border border-border rounded-md" placeholder="e.g., mit"/></div>
+                                <div className="flex items-center gap-2 text-sm"><label htmlFor="license_template">License template:</label><input id="license_template" name="license_template" value={formState.license_template ?? ''} onChange={handleChange} className="p-1 bg-background border border-border rounded-md" placeholder="e.g., mit"/></div>
                             </div>
                         </div>
 

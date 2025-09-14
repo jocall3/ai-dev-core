@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { reviewCodeStream } from '../services/index.ts';
 import { CpuChipIcon } from './icons.tsx';
 import { LoadingSpinner } from './shared/index.tsx';
@@ -16,14 +16,14 @@ const exampleCode = `function UserList(users) {
   }
 }`;
 
-export const CodeReviewBot: React.FC = () => {
-    const [code, setCode] = useState<string>(exampleCode);
+export const CodeReviewBot: React.FC<{ initialCode?: string }> = ({ initialCode }) => {
+    const [code, setCode] = useState<string>(initialCode || exampleCode);
     const [review, setReview] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
 
-    const handleGenerate = useCallback(async () => {
-        if (!code.trim()) {
+    const handleGenerate = useCallback(async (codeToReview: string) => {
+        if (!codeToReview.trim()) {
             setError('Please enter some code to review.');
             return;
         }
@@ -31,7 +31,7 @@ export const CodeReviewBot: React.FC = () => {
         setError('');
         setReview('');
         try {
-            const stream = reviewCodeStream(code);
+            const stream = reviewCodeStream(codeToReview);
             let fullResponse = '';
             for await (const chunk of stream) {
                 fullResponse += chunk;
@@ -43,7 +43,14 @@ export const CodeReviewBot: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [code]);
+    }, []);
+    
+    useEffect(() => {
+        if (initialCode) {
+            setCode(initialCode);
+            handleGenerate(initialCode);
+        }
+    }, [initialCode, handleGenerate]);
 
     return (
         <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 text-text-primary">
@@ -67,7 +74,7 @@ export const CodeReviewBot: React.FC = () => {
                 </div>
                  <div className="flex-shrink-0">
                     <button
-                        onClick={handleGenerate}
+                        onClick={() => handleGenerate(code)}
                         disabled={isLoading}
                         className="btn-primary w-full max-w-xs mx-auto flex items-center justify-center px-6 py-3"
                     >

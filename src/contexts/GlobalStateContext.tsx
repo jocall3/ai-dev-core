@@ -9,6 +9,7 @@ interface GlobalState {
   hiddenFeatures: string[];
   isGithubConnected: boolean;
   user: User | null;
+  token: string | null;
   selectedRepo: { owner: string; repo: string } | null;
   projectFiles: FileNode | null;
 }
@@ -30,6 +31,7 @@ const initialState: GlobalState = {
   hiddenFeatures: [],
   isGithubConnected: false,
   user: null,
+  token: null,
   selectedRepo: null,
   projectFiles: null,
 };
@@ -47,9 +49,9 @@ const reducer = (state: GlobalState, action: Action): GlobalState => {
         return { ...state, hiddenFeatures: newHiddenFeatures };
     }
     case 'LOGIN':
-        return { ...state, isGithubConnected: true, user: action.payload.user };
+        return { ...state, isGithubConnected: true, user: action.payload.user, token: action.payload.token };
     case 'LOGOUT':
-        return { ...state, isGithubConnected: false, user: null, selectedRepo: null, projectFiles: null };
+        return { ...state, isGithubConnected: false, user: null, token: null, selectedRepo: null, projectFiles: null };
     case 'SET_SELECTED_REPO':
         return { ...state, selectedRepo: action.payload, projectFiles: null }; // Reset project files on repo change
     case 'LOAD_PROJECT_FILES':
@@ -95,6 +97,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (storedState.isGithubConnected) hydratedState.isGithubConnected = storedState.isGithubConnected;
             if (storedState.user) hydratedState.user = storedState.user;
             if (storedState.selectedRepo) hydratedState.selectedRepo = storedState.selectedRepo;
+            if (storedState.token) hydratedState.token = storedState.token;
             
             return hydratedState;
         } catch (error) {
@@ -114,6 +117,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     isGithubConnected: state.isGithubConnected,
                     user: state.user,
                     selectedRepo: state.selectedRepo,
+                    token: state.token,
                 };
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
             } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateUnitTestsStream, downloadFile } from '../services/index.ts';
 import { BeakerIcon, ArrowDownTrayIcon } from './icons.tsx';
 import { LoadingSpinner } from './shared/index.tsx';
@@ -13,14 +13,14 @@ export const Greeting = ({ name }) => {
   return <div>Hello, {name}!</div>;
 };`;
 
-export const AiUnitTestGenerator: React.FC = () => {
-    const [code, setCode] = useState<string>(exampleCode);
+export const AiUnitTestGenerator: React.FC<{ initialCode?: string }> = ({ initialCode }) => {
+    const [code, setCode] = useState<string>(initialCode || exampleCode);
     const [tests, setTests] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
 
-    const handleGenerate = useCallback(async () => {
-        if (!code.trim()) {
+    const handleGenerate = useCallback(async (codeToTest: string) => {
+        if (!codeToTest.trim()) {
             setError('Please enter some code to generate tests for.');
             return;
         }
@@ -28,7 +28,7 @@ export const AiUnitTestGenerator: React.FC = () => {
         setError('');
         setTests('');
         try {
-            const stream = generateUnitTestsStream(code);
+            const stream = generateUnitTestsStream(codeToTest);
             let fullResponse = '';
             for await (const chunk of stream) {
                 fullResponse += chunk;
@@ -40,7 +40,14 @@ export const AiUnitTestGenerator: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [code]);
+    }, []);
+    
+    useEffect(() => {
+        if (initialCode) {
+            setCode(initialCode);
+            handleGenerate(initialCode);
+        }
+    }, [initialCode, handleGenerate]);
     
     const cleanCodeForDownload = (markdown: string) => {
         return markdown.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '');
@@ -68,7 +75,7 @@ export const AiUnitTestGenerator: React.FC = () => {
                 </div>
                 <div className="flex-shrink-0">
                     <button
-                        onClick={handleGenerate}
+                        onClick={() => handleGenerate(code)}
                         disabled={isLoading}
                         className="btn-primary w-full max-w-xs mx-auto flex items-center justify-center px-6 py-3"
                     >

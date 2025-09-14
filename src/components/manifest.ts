@@ -102,6 +102,7 @@ const componentMap: Record<string, React.FC<any>> = {
     'ai-tech-blog-writer': lazyWithRetry(() => import('./AiTechBlogWriter.tsx'), 'AiTechBlogWriter'),
     'accessibility-checker': lazyWithRetry(() => import('./AccessibilityChecker.tsx'), 'AccessibilityChecker'),
     'ai-repo-creator': lazyWithRetry(() => import('./AiRepoCreator.tsx'), 'AiRepoCreator'),
+    'google-drive-labeler': lazyWithRetry(() => import('./GoogleDriveLabeler.tsx'), 'GoogleDriveLabeler'),
 };
 
 /**

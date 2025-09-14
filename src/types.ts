@@ -49,6 +49,14 @@ export interface StructuredExplanation {
     suggestions: string[];
 }
 
+export interface CertificateDetails {
+    subject: { commonName: string; organization?: string; country?: string; };
+    issuer: { commonName: string; organization?: string; country?: string; };
+    validFrom: string;
+    validTo: string;
+    serialNumber: string;
+}
+
 export interface ColorTheme {
     primary: string;
     background: string;
