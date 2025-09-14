@@ -4,7 +4,7 @@ import { getInferenceFunction, CommandResponse, FEATURE_TAXONOMY, logError } fro
 import { useGlobalState } from '../contexts/GlobalStateContext.tsx';
 import { CommandLineIcon } from './icons.tsx';
 import { LoadingSpinner } from './shared/index.tsx';
-import { ALL_FEATURE_IDS } from './manifest.ts';
+import { ALL_FEATURE_IDS } from './index.ts';
 
 const functionDeclarations: FunctionDeclaration[] = [
     {

@@ -1,61 +1,131 @@
 import React from 'react';
-import {
-    CommandCenterIcon, CodeExplainerIcon, FeatureBuilderIcon, CodeMigratorIcon, ThemeDesignerIcon, SnippetVaultIcon,
-    UnitTestGeneratorIcon, ConcurrencyAnalyzerIcon, RegexSandboxIcon,
-    PromptCraftPadIcon, CodeFormatterIcon, JsonTreeIcon, CssGridEditorIcon, SchemaDesignerIcon, PwaManifestEditorIcon,
-    MarkdownSlidesIcon, ScreenshotToComponentIcon, SvgPathEditorIcon, StyleTransferIcon, CodingChallengeIcon,
-    CodeReviewBotIcon, CronJobBuilderIcon,
-    AsyncCallTreeIcon, AudioToCodeIcon, CodeSpellCheckerIcon, ColorPaletteGeneratorIcon, LogicFlowBuilderIcon,
-    MetaTagEditorIcon, NetworkVisualizerIcon, ResponsiveTesterIcon, SassCompilerIcon, ImageGeneratorIcon, XbrlConverterIcon,
-    DigitalWhiteboardIcon, TypographyLabIcon
-} from './icons.tsx';
-import type { FeatureCategory } from '../constants.ts';
+import type { Feature } from '../types.ts';
+import { RAW_FEATURES } from './manifest.data.ts';
+import { lazyWithRetry } from '../services/index.ts';
 
-interface RawFeature {
-    id: string;
-    name: string;
-    description: string;
-    icon: React.ReactNode;
-    category: FeatureCategory;
-}
+// Map feature IDs to their components using lazy loading with retry logic
+const componentMap: Record<string, React.FC<any>> = {
+    'ai-command-center': lazyWithRetry(() => import('./AiCommandCenter.tsx'), 'AiCommandCenter'),
+    'ai-code-explainer': lazyWithRetry(() => import('./AiCodeExplainer.tsx'), 'AiCodeExplainer'),
+    'ai-feature-builder': lazyWithRetry(() => import('./AiFeatureBuilder.tsx'), 'AiFeatureBuilder'),
+    'regex-sandbox': lazyWithRetry(() => import('./RegexSandbox.tsx'), 'RegexSandbox'),
+    'portable-snippet-vault': lazyWithRetry(() => import('./SnippetVault.tsx'), 'SnippetVault'),
+    'css-grid-editor': lazyWithRetry(() => import('./CssGridEditor.tsx'), 'CssGridEditor'),
+    'json-tree-navigator': lazyWithRetry(() => import('./JsonTreeNavigator.tsx'), 'JsonTreeNavigator'),
+    'xbrl-converter': lazyWithRetry(() => import('./XbrlConverter.tsx'), 'XbrlConverter'),
+    'ai-unit-test-generator': lazyWithRetry(() => import('./AiUnitTestGenerator.tsx'), 'AiUnitTestGenerator'),
+    'prompt-craft-pad': lazyWithRetry(() => import('./PromptCraftPad.tsx'), 'PromptCraftPad'),
+    'linter-formatter': lazyWithRetry(() => import('./CodeFormatter.tsx'), 'CodeFormatter'),
+    'schema-designer': lazyWithRetry(() => import('./SchemaDesigner.tsx'), 'SchemaDesigner'),
+    'pwa-manifest-editor': lazyWithRetry(() => import('./PwaManifestEditor.tsx'), 'PwaManifestEditor'),
+    'markdown-slideshow-generator': lazyWithRetry(() => import('./MarkdownSlides.tsx'), 'MarkdownSlides'),
+    'screenshot-to-component': lazyWithRetry(() => import('./ScreenshotToComponent.tsx'), 'ScreenshotToComponent'),
+    'typography-lab': lazyWithRetry(() => import('./TypographyLab.tsx'), 'TypographyLab'),
+    'svg-path-editor': lazyWithRetry(() => import('./SvgPathEditor.tsx'), 'SvgPathEditor'),
+    'ai-style-transfer': lazyWithRetry(() => import('./AiStyleTransfer.tsx'), 'AiStyleTransfer'),
+    'ai-coding-challenge-generator': lazyWithRetry(() => import('./AiCodingChallenge.tsx'), 'AiCodingChallenge'),
+    'code-review-bot': lazyWithRetry(() => import('./CodeReviewBot.tsx'), 'CodeReviewBot'),
+    'ai-pr-assistant': lazyWithRetry(() => import('./AiPullRequestAssistant.tsx'), 'AiPullRequestAssistant'),
+    'ai-changelog-generator': lazyWithRetry(() => import('./ChangelogGenerator.tsx'), 'ChangelogGenerator'),
+    'cron-job-builder': lazyWithRetry(() => import('./CronJobBuilder.tsx'), 'CronJobBuilder'),
+    'async-call-tree-viewer': lazyWithRetry(() => import('./AsyncCallTreeViewer.tsx'), 'AsyncCallTreeViewer'),
+    'audio-to-code': lazyWithRetry(() => import('./AudioToCode.tsx'), 'AudioToCode'),
+    'code-diff-ghost': lazyWithRetry(() => import('./CodeDiffGhost.tsx'), 'CodeDiffGhost'),
+    'code-spell-checker': lazyWithRetry(() => import('./CodeSpellChecker.tsx'), 'CodeSpellChecker'),
+    'color-palette-generator': lazyWithRetry(() => import('./ColorPaletteGenerator.tsx'), 'ColorPaletteGenerator'),
+    'logic-flow-builder': lazyWithRetry(() => import('./LogicFlowBuilder.tsx'), 'LogicFlowBuilder'),
+    'meta-tag-editor': lazyWithRetry(() => import('./MetaTagEditor.tsx'), 'MetaTagEditor'),
+    'network-visualizer': lazyWithRetry(() => import('./NetworkVisualizer.tsx'), 'NetworkVisualizer'),
+    'responsive-tester': lazyWithRetry(() => import('./ResponsiveTester.tsx'), 'ResponsiveTester'),
+    'sass-scss-compiler': lazyWithRetry(() => import('./SassScssCompiler.tsx'), 'SassScssCompiler'),
+    'ai-image-generator': lazyWithRetry(() => import('./AiImageGenerator.tsx'), 'AiImageGenerator'),
+    'ai-commit-generator': lazyWithRetry(() => import('./AiCommitGenerator.tsx'), 'AiCommitGenerator'),
+    'connections': lazyWithRetry(() => import('./Connections.tsx'), 'Connections'),
+    'project-explorer': lazyWithRetry(() => import('./ProjectExplorer.tsx'), 'ProjectExplorer'),
+    'ai-code-migrator': lazyWithRetry(() => import('./AiCodeMigrator.tsx'), 'AiCodeMigrator'),
+    'theme-designer': lazyWithRetry(() => import('./ThemeDesigner.tsx'), 'ThemeDesigner'),
+    'visual-git-tree': lazyWithRetry(() => import('./VisualGitTree.tsx'), 'VisualGitTree'),
+    'worker-thread-debugger': lazyWithRetry(() => import('./WorkerThreadDebugger.tsx'), 'WorkerThreadDebugger'),
+    'web-scraper': lazyWithRetry(() => import('./WebScraper.tsx'), 'WebScraper'),
+    'user-story-generator': lazyWithRetry(() => import('./UserStoryGenerator.tsx'), 'UserStoryGenerator'),
+    'url-encoder': lazyWithRetry(() => import('./UrlEncoder.tsx'), 'UrlEncoder'),
+    'uml-diagram-generator': lazyWithRetry(() => import('./UmlDiagramGenerator.tsx'), 'UmlDiagramGenerator'),
+    'terraform-config-generator': lazyWithRetry(() => import('./TerraformConfigGenerator.tsx'), 'TerraformConfigGenerator'),
+    'system-design-planner': lazyWithRetry(() => import('./SystemDesignPlanner.tsx'), 'SystemDesignPlanner'),
+    'ssl-certificate-inspector': lazyWithRetry(() => import('./SslCertificateInspector.tsx'), 'SslCertificateInspector'),
+    'ssh-key-generator': lazyWithRetry(() => import('./SshKeyGenerator.tsx'), 'SshKeyGenerator'),
+    'sql-formatter': lazyWithRetry(() => import('./SqlFormatter.tsx'), 'SqlFormatter'),
+    'security-vulnerability-scanner': lazyWithRetry(() => import('./SecurityVulnerabilityScanner.tsx'), 'SecurityVulnerabilityScanner'),
+    'release-notes-generator': lazyWithRetry(() => import('./ReleaseNotesGenerator.tsx'), 'ReleaseNotesGenerator'),
+    'project-timeline-generator': lazyWithRetry(() => import('./ProjectTimelineGenerator.tsx'), 'ProjectTimelineGenerator'),
+    'project-moodboard': lazyWithRetry(() => import('./ProjectMoodboard.tsx'), 'ProjectMoodboard'),
+    'pr-generator': lazyWithRetry(() => import('./PrGenerator.tsx'), 'PrGenerator'),
+    'performance-load-tester': lazyWithRetry(() => import('./PerformanceLoadTester.tsx'), 'PerformanceLoadTester'),
+    'mock-data-generator': lazyWithRetry(() => import('./MockDataGenerator.tsx'), 'MockDataGenerator'),
+    'logo-generator': lazyWithRetry(() => import('./LogoGenerator.tsx'), 'LogoGenerator'),
+    'kubernetes-manifest-generator': lazyWithRetry(() => import('./KubernetesManifestGenerator.tsx'), 'KubernetesManifestGenerator'),
+    'jwt-debugger': lazyWithRetry(() => import('./JwtDebugger.tsx'), 'JwtDebugger'),
+    'json-schema-generator': lazyWithRetry(() => import('./JsonSchemaGenerator.tsx'), 'JsonSchemaGenerator'),
+    'json-csv-converter': lazyWithRetry(() => import('./JsonCsvConverter.tsx'), 'JsonCsvConverter'),
+    'interview-prep-kit': lazyWithRetry(() => import('./InterviewPrepKit.tsx'), 'InterviewPrepKit'),
+    'html-table-generator': lazyWithRetry(() => import('./HtmlTableGenerator.tsx'), 'HtmlTableGenerator'),
+    'github-repo-explorer': lazyWithRetry(() => import('./GitHubRepoExplorer.tsx'), 'GitHubRepoExplorer'),
+    'github-profile-readme-generator': lazyWithRetry(() => import('./GithubProfileReadmeGenerator.tsx'), 'GithubProfileReadmeGenerator'),
+    'git-branching-model-visualizer': lazyWithRetry(() => import('./GitBranchingModelVisualizer.tsx'), 'GitBranchingModelVisualizer'),
+    'font-preview-picker': lazyWithRetry(() => import('./FontPreviewPicker.tsx'), 'FontPreviewPicker'),
+    'font-pairing-tool': lazyWithRetry(() => import('./FontPairingTool.tsx'), 'FontPairingTool'),
+    'error-message-explainer': lazyWithRetry(() => import('./ErrorMessageExplainer.tsx'), 'ErrorMessageExplainer'),
+    'environment-variable-manager': lazyWithRetry(() => import('./EnvironmentVariableManager.tsx'), 'EnvironmentVariableManager'),
+    'email-template-builder': lazyWithRetry(() => import('./EmailTemplateBuilder.tsx'), 'EmailTemplateBuilder'),
+    'dockerfile-generator': lazyWithRetry(() => import('./DockerfileGenerator.tsx'), 'DockerfileGenerator'),
+    'digital-whiteboard': lazyWithRetry(() => import('./DigitalWhiteboard.tsx'), 'DigitalWhiteboard'),
+    'dev-notes-sticky-panel': lazyWithRetry(() => import('./DevNotesStickyPanel.tsx'), 'DevNotesStickyPanel'),
+    'design-pattern-suggester': lazyWithRetry(() => import('./DesignPatternSuggester.tsx'), 'DesignPatternSuggester'),
+    'dependency-update-suggester': lazyWithRetry(() => import('./DependencyUpdateSuggester.tsx'), 'DependencyUpdateSuggester'),
+    'data-structure-visualizer': lazyWithRetry(() => import('./DataStructureVisualizer.tsx'), 'DataStructureVisualizer'),
+    'database-query-generator': lazyWithRetry(() => import('./DatabaseQueryGenerator.tsx'), 'DatabaseQueryGenerator'),
+    'customer-support-bot-builder': lazyWithRetry(() => import('./CustomerSupportBotBuilder.tsx'), 'CustomerSupportBotBuilder'),
+    'color-contrast-checker': lazyWithRetry(() => import('./ColorContrastChecker.tsx'), 'ColorContrastChecker'),
+    'code-to-flowchart': lazyWithRetry(() => import('./CodeToFlowchart.tsx'), 'CodeToFlowchart'),
+    'code-snippet-to-api': lazyWithRetry(() => import('./CodeSnippetToApi.tsx'), 'CodeSnippetToApi'),
+    'code-performance-analyzer': lazyWithRetry(() => import('./CodePerformanceAnalyzer.tsx'), 'CodePerformanceAnalyzer'),
+    'code-obfuscator': lazyWithRetry(() => import('./CodeObfuscator.tsx'), 'CodeObfuscator'),
+    'code-documentation-generator': lazyWithRetry(() => import('./CodeDocumentationGenerator.tsx'), 'CodeDocumentationGenerator'),
+    'code-dependency-visualizer': lazyWithRetry(() => import('./CodeDependencyVisualizer.tsx'), 'CodeDependencyVisualizer'),
+    'code-comment-generator': lazyWithRetry(() => import('./CodeCommentGenerator.tsx'), 'CodeCommentGenerator'),
+    'cloud-cost-estimator': lazyWithRetry(() => import('./CloudCostEstimator.tsx'), 'CloudCostEstimator'),
+    'ci-cd-generator': lazyWithRetry(() => import('./CiCdGenerator.tsx'), 'CiCdGenerator'),
+    'base64-encoder': lazyWithRetry(() => import('./Base64Encoder.tsx'), 'Base64Encoder'),
+    'api-sdk-generator': lazyWithRetry(() => import('./ApiSdkGenerator.tsx'), 'ApiSdkGenerator'),
+    'api-docs-generator': lazyWithRetry(() => import('./ApiDocsGenerator.tsx'), 'ApiDocsGenerator'),
+    'api-client': lazyWithRetry(() => import('./ApiClient.tsx'), 'ApiClient'),
+    'ai-tech-blog-writer': lazyWithRetry(() => import('./AiTechBlogWriter.tsx'), 'AiTechBlogWriter'),
+    'accessibility-checker': lazyWithRetry(() => import('./AccessibilityChecker.tsx'), 'AccessibilityChecker'),
+    'ai-repo-creator': lazyWithRetry(() => import('./AiRepoCreator.tsx'), 'AiRepoCreator'),
+};
 
-// This is the raw data, to be "compiled" by features/index.ts
-export const RAW_FEATURES: RawFeature[] = [
-    { id: "ai-command-center", name: "AI Command Center", description: "Use natural language to navigate and control the toolkit.", icon: React.createElement(CommandCenterIcon, null), category: "Core" },
-    { id: "ai-image-generator", name: "AI Image Generator", description: "Generate high-quality images from a text prompt.", icon: React.createElement(ImageGeneratorIcon, null), category: "AI Tools" },
-    { id: "ai-code-explainer", name: "AI Code Explainer", description: "Get a structured analysis of code, including complexity.", icon: React.createElement(CodeExplainerIcon, null), category: "AI Tools" },
-    { id: "ai-feature-builder", name: "AI Feature Builder", description: "Generate code, tests, and commit messages.", icon: React.createElement(FeatureBuilderIcon, null), category: "AI Tools" },
-    { id: "ai-code-migrator", name: "AI Code Migrator", description: "Translate code between languages & frameworks.", icon: React.createElement(CodeMigratorIcon, null), category: "AI Tools" },
-    { id: "theme-designer", name: "AI Theme Designer", description: "Generate, fine-tune, and export UI color themes from a text description.", icon: React.createElement(ThemeDesignerIcon, null), category: "AI Tools" },
-    { id: "portable-snippet-vault", name: "Snippet Vault", description: "Store, search, tag, and enhance reusable code snippets with AI.", icon: React.createElement(SnippetVaultIcon, null), category: "Productivity" },
-    { id: "digital-whiteboard", name: "Digital Whiteboard", description: "Organize ideas with interactive sticky notes and get AI-powered summaries.", icon: React.createElement(DigitalWhiteboardIcon, null), category: "Productivity" },
-    { id: "ai-unit-test-generator", name: "AI Unit Test Generator", description: "Generate unit tests from source code.", icon: React.createElement(UnitTestGeneratorIcon, null), category: "AI Tools" },
-    { id: "worker-thread-debugger", name: "AI Concurrency Analyzer", description: "Analyze JS for Web Worker issues like race conditions.", icon: React.createElement(ConcurrencyAnalyzerIcon, null), category: "Testing" },
-    { id: "regex-sandbox", name: "RegEx Sandbox", description: "Visually test regular expressions, generate them with AI, and inspect match groups.", icon: React.createElement(RegexSandboxIcon, null), category: "Testing" },
-    { id: "prompt-craft-pad", name: "Prompt Craft Pad", description: "Save, edit, and manage your custom AI prompts with variable testing.", icon: React.createElement(PromptCraftPadIcon, null), category: "AI Tools" },
-    { id: "linter-formatter", name: "AI Code Formatter", description: "AI-powered, real-time code formatting.", icon: React.createElement(CodeFormatterIcon, null), category: "Core" },
-    { id: "json-tree-navigator", name: "JSON Tree Navigator", description: "Navigate large JSON objects as a collapsible tree.", icon: React.createElement(JsonTreeIcon, null), category: "Core" },
-    { id: "xbrl-converter", name: "XBRL Converter", description: "Convert JSON data to a simplified XBRL-like XML format using AI.", icon: React.createElement(XbrlConverterIcon, null), category: "Data" },
-    { id: "css-grid-editor", name: "CSS Grid Visual Editor", description: "Drag-based layout builder for CSS Grid.", icon: React.createElement(CssGridEditorIcon, null), category: "Frontend" },
-    { id: "schema-designer", name: "Schema Designer", description: "Visually design a database schema with a drag-and-drop interface and SQL export.", icon: React.createElement(SchemaDesignerIcon, null), category: "Database" },
-    { id: "pwa-manifest-editor", name: "PWA Manifest Editor", description: "Configure and preview Progressive Web App manifests with a home screen simulator.", icon: React.createElement(PwaManifestEditorIcon, null), category: "Frontend" },
-    { id: "markdown-slides-generator", name: "Markdown Slides", description: "Turn markdown into a fullscreen presentation with an interactive overlay.", icon: React.createElement(MarkdownSlidesIcon, null), category: "Productivity" },
-    { id: "screenshot-to-component", name: "Screenshot-to-Component", description: "Turn UI screenshots into functional code via paste or upload.", icon: React.createElement(ScreenshotToComponentIcon, null), category: "AI Tools" },
-    { id: "typography-lab", name: "Typography Lab", description: "Preview font pairings and get CSS import rules.", icon: React.createElement(TypographyLabIcon, null), category: "Frontend" },
-    { id: "svg-path-editor", name: "SVG Path Editor", description: "Visually create and manipulate SVG path data with an interactive canvas.", icon: React.createElement(SvgPathEditorIcon, null), category: "Frontend" },
-    { id: "ai-style-transfer", name: "AI Code Style Transfer", description: "Rewrite code to match a specific style guide.", icon: React.createElement(StyleTransferIcon, null), category: "AI Tools" },
-    { id: "ai-coding-challenge", name: "AI Coding Challenge Generator", description: "Generate unique coding exercises.", icon: React.createElement(CodingChallengeIcon, null), category: "AI Tools" },
-    { id: "code-review-bot", name: "AI Code Review Bot", description: "Get an automated code review from an AI.", icon: React.createElement(CodeReviewBotIcon, null), category: "AI Tools" },
-    { id: "cron-job-builder", name: "AI Cron Job Builder", description: "Visually tool to configure cron jobs, with AI.", icon: React.createElement(CronJobBuilderIcon, null), category: "Deployment" },
-    { id: "async-call-tree-viewer", name: "Async Call Tree Viewer", description: "Visualize a tree of asynchronous function calls from JSON data.", icon: React.createElement(AsyncCallTreeIcon, null), category: "Testing" },
-    { id: "audio-to-code", name: "AI Audio-to-Code", description: "Speak your programming ideas and watch them turn into code.", icon: React.createElement(AudioToCodeIcon, null), category: "AI Tools" },
-    { id: "code-spell-checker", name: "Code Spell Checker", description: "A spell checker that finds common typos in code.", icon: React.createElement(CodeSpellCheckerIcon, null), category: "Testing" },
-    { id: "color-palette-generator", name: "AI Color Palette Generator", description: "Pick a base color and let Gemini design a beautiful palette.", icon: React.createElement(ColorPaletteGeneratorIcon, null), category: "Frontend" },
-    { id: "logic-flow-builder", name: "Logic Flow Builder", description: "A visual tool for building application logic flows.", icon: React.createElement(LogicFlowBuilderIcon, null), category: "Workflow" },
-    { id: "meta-tag-editor", name: "Meta Tag Editor", description: "Generate SEO/social media meta tags with a live social card preview.", icon: React.createElement(MetaTagEditorIcon, null), category: "Frontend" },
-    { id: "network-visualizer", name: "Network Visualizer", description: "Inspect network resources with a summary and visual waterfall chart.", icon: React.createElement(NetworkVisualizerIcon, null), category: "Testing" },
-    { id: "responsive-tester", name: "Responsive Tester", description: "Preview your web pages at different screen sizes and custom resolutions.", icon: React.createElement(ResponsiveTesterIcon, null), category: "Frontend" },
-    { id: "sass-scss-compiler", name: "SASS/SCSS Compiler", description: "A real-time SASS/SCSS to CSS compiler.", icon: React.createElement(SassCompilerIcon, null), category: "Frontend" },
-];
+/**
+ * Hydrates the raw feature definitions with their lazy-loaded components.
+ */
+export const ALL_FEATURES: Feature[] = RAW_FEATURES.map(feature => {
+    const component = componentMap[feature.id];
+    if (!component) {
+        console.warn(`No component found for feature ID: ${feature.id}`);
+        // Fallback component
+        return {
+            ...feature,
+            component: () => React.createElement('div', null, `Component for ${feature.name} not found.`)
+        };
+    }
+    return { ...feature, component };
+});
 
-export const ALL_FEATURE_IDS = RAW_FEATURES.map(f => f.id);
+/**
+ * A map of feature IDs to their full feature definition for quick lookups.
+ */
+export const FEATURES_MAP = new Map<string, Feature>(ALL_FEATURES.map(f => [f.id, f]));
+
+/**
+ * An array of all feature IDs, primarily for use in function calling schemas.
+ */
+export const ALL_FEATURE_IDS = ALL_FEATURES.map(f => f.id);
