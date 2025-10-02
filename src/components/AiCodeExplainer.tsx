@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { explainCodeStructured } from '../services/index.ts';
 import type { StructuredExplanation } from '../types.ts';

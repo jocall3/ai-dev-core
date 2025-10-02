@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 import React, { useState, useCallback } from 'react';
 import { CodeBracketSquareIcon } from './icons.tsx';
 import { compileSassStream } from '../services/index.ts';

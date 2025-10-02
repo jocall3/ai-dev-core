@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 export const CHROME_VIEW_IDS = ['features-list'] as const;
 
 export const SLOTS = ['Core', 'AI Tools', 'Frontend', 'Testing', 'Database', 'Productivity'] as const;

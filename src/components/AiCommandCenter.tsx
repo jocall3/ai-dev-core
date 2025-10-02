@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 import React, { useState, useCallback } from 'react';
 import { Type, FunctionDeclaration } from "@google/genai";
 import { getInferenceFunction, CommandResponse, FEATURE_TAXONOMY, logError } from '../services/index.ts';

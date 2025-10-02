@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 import React, { useState, useCallback } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext.tsx';
 import { createRepo, generateRepoDetailsFromPrompt } from '../services/index.ts';

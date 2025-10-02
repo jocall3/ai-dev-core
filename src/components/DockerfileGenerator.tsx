@@ -1,3 +1,6 @@
+// Copyright James Burvel O’Callaghan III
+// President Citibank Demo Business Inc.
+
 import React, { useState, useCallback } from 'react';
 import { DockerfileGeneratorIcon } from './icons.tsx';
 import { generateDockerfileStream } from '../services/geminiService.ts';
