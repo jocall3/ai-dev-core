@@ -58,7 +58,6 @@ export const RAW_FEATURES: RawFeature[] = [
     { id: 'ai-tech-blog-writer', name: 'AI Tech Blog Writer', description: 'Generate a draft for a technical blog post from a topic.', icon: React.createElement(AiTechBlogWriterIcon), category: 'AI Tools' },
     { id: 'ai-style-transfer', name: 'AI Code Style Transfer', description: 'Rewrite code to match a specific style guide.', icon: React.createElement(StyleTransferIcon), category: 'AI Tools' },
     { id: 'ai-coding-challenge-generator', name: 'AI Coding Challenge', description: 'Generate a unique coding problem to test your skills.', icon: React.createElement(CodingChallengeIcon), category: 'AI Tools' },
-    { id: 'google-drive-labeler', name: 'AI Google Drive Labeler', description: 'Generate structured labels for Drive files from a prompt.', icon: React.createElement(GoogleDriveIcon), category: 'AI Tools' },
     { id: 'css-grid-editor', name: 'CSS Grid Editor', description: 'Visually create and configure CSS grid layouts.', icon: React.createElement(CssGridEditorIcon), category: 'Frontend' },
     { id: 'pwa-manifest-editor', name: 'PWA Manifest Editor', description: 'Configure and generate the manifest.json file for your PWA.', icon: React.createElement(PwaManifestEditorIcon), category: 'Frontend' },
     { id: 'screenshot-to-component', name: 'Screenshot to Component', description: 'Generate React/Tailwind code from a UI screenshot.', icon: React.createElement(ScreenshotToComponentIcon), category: 'Frontend' },

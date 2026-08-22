@@ -475,10 +475,168 @@ export const generateDriveLabelRequest = (prompt: string): Promise<any> => {
 
 // --- Unified Feature Functions (JSON) ---
 
+export interface CommandResponse {
+    functionCalls?: FunctionCall[];
+    text?: string;
+}
+
 export const getInferenceFunction = async (prompt: string, functionDeclarations: FunctionDeclaration[], knowledgeBase: string): Promise<CommandResponse> => {
-     try {
+    try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
-                systemInstruction: `You are the AI command center for a developer toolkit. Your goal is to understand the user's request and call the appropriate function to activate a tool. Use the provided knowledge
+                systemInstruction: `You are the AI command center for a developer toolkit. Your goal is to understand the user's request and call the appropriate function to activate a tool. Use the provided knowledge base to map user requests to the correct 'featureId' for the 'navigateTo' or 'runFeatureWithInput' functions. If the user provides data directly in the prompt (like a code snippet), use the 'runFeatureWithInput' function. Otherwise, use 'navigateTo'. Do not make up feature IDs; only use the ones provided in the knowledge base. If no specific tool seems appropriate, respond with helpful text.
+
+Knowledge Base:
+${knowledgeBase}`,
+                tools: [{ functionDeclarations }],
+            }
+        });
+
+        const parts = response.candidates?.[0]?.content?.parts;
+        if (parts) {
+            const functionCalls = parts
+                .filter(part => 'functionCall' in part)
+                // @ts-ignore because the SDK's Part type isn't perfectly narrowed
+                .map(part => part.functionCall as FunctionCall);
+
+            if (functionCalls.length > 0) {
+                return { functionCalls };
+            }
+        }
+
+        return { text: response.text };
+
+    } catch (error) {
+        console.error("Error inferring function call:", error);
+        logError(error as Error, { prompt });
+        throw new Error("The AI assistant could not process your request.");
+    }
+};
+
+// --- Unified Feature Functions (JSON) ---
+
+const prSummarySchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING, description: 'A conventional commit style title for the pull request.' },
+        summary: { type: Type.STRING, description: 'A one-paragraph summary of the changes.' },
+        changes: {
+            type: Type.ARRAY,
+            description: 'A bulleted list of the key changes.',
+            items: { type: Type.STRING }
+        }
+    },
+    required: ['title', 'summary', 'changes']
+};
+
+export const generatePrSummaryStructured = (diff: string): Promise<StructuredPrSummary> => generateJson<StructuredPrSummary>(
+    `Generate a structured pull request summary for the following diff:\n\n\`\`\`diff\n${diff}\n\`\`\``,
+    "You are an expert programmer who writes excellent pull request summaries. Respond in the requested JSON format.",
+    prSummarySchema
+);
+
+const themeSchema = {
+    type: Type.OBJECT,
+    properties: {
+        primary: { type: Type.STRING, description: 'The primary accent color (hex code).' },
+        background: { type: Type.STRING, description: 'The main background color (hex code).' },
+        surface: { type: Type.STRING, description: 'The color for surfaces like cards (hex code).' },
+        textPrimary: { type: Type.STRING, description: 'The color for primary text (hex code).' },
+        textSecondary: { type: Type.STRING, description: 'The color for secondary text (hex code).' }
+    },
+    required: ['primary', 'background', 'surface', 'textPrimary', 'textSecondary']
+};
+
+export const generateThemeFromDescription = (description: string): Promise<ColorTheme> => generateJson<ColorTheme>(
+    `Generate a color theme based on this description: "${description}"`,
+    "You are a UI designer who creates beautiful, accessible color palettes. Respond in the requested JSON format.",
+    themeSchema
+);
+
+const repoDetailsSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING, description: 'A short, URL-friendly repository name in kebab-case.' },
+        description: { type: Type.STRING, description: 'A concise, one-sentence description of the repository.' }
+    },
+    required: ['name', 'description']
+};
+
+export const generateRepoDetailsFromPrompt = (prompt: string): Promise<RepoTemplate> => generateJson<RepoTemplate>(
+    `Generate a repository name and description for a project with the following goal: "${prompt}"`,
+    "You are an expert software project manager. You create clear and concise repository names and descriptions. Respond in the requested JSON format.",
+    repoDetailsSchema
+);
+
+export interface CronParts {
+    minute: string; hour: string; dayOfMonth: string; month: string; dayOfWeek: string;
+}
+
+const cronSchema = {
+    type: Type.OBJECT,
+    properties: {
+        minute: { type: Type.STRING },
+        hour: { type: Type.STRING },
+        dayOfMonth: { type: Type.STRING },
+        month: { type: Type.STRING },
+        dayOfWeek: { type: Type.STRING }
+    },
+    required: ['minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek']
+};
+
+export const generateCronFromDescription = (description: string): Promise<CronParts> => generateJson<CronParts>(
+    `Generate a cron expression based on this description: "${description}"`,
+    "You are an expert in cron expressions. Respond with only the requested JSON object.",
+    cronSchema
+);
+
+const paletteSchema = {
+    type: Type.OBJECT,
+    properties: {
+        colors: {
+            type: Type.ARRAY,
+            description: 'An array of 6 hex color codes, from darkest to lightest.',
+            items: { type: Type.STRING }
+        }
+    },
+    required: ['colors']
+};
+
+export const generateColorPalette = (baseColor: string): Promise<{ colors: string[] }> => generateJson<{ colors: string[] }>(
+    `Generate a 6-color palette based on the color ${baseColor}.`,
+    "You are a UI designer who creates beautiful, harmonious color palettes. Respond in the requested JSON format.",
+    paletteSchema
+);
+
+export const generateFeature = async (prompt: string): Promise<GeneratedFile[]> => {
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            files: {
+                type: Type.ARRAY,
+                description: 'An array of files to be created.',
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        filePath: { type: Type.STRING, description: 'The full path of the file, e.g., "src/components/MyComponent.tsx".' },
+                        content: { type: Type.STRING, description: 'The complete code or content of the file.' },
+                        description: { type: Type.STRING, description: 'A brief, one-sentence description of the file\'s purpose.' }
+                    },
+                    required: ['filePath', 'content', 'description']
+                }
+            }
+        },
+        required: ['files']
+    };
+    
+    const result = await generateJson<{ files: GeneratedFile[] }>(
+        `Generate all the necessary files for a new feature based on the following description. The main component should be a React component using TypeScript and functional components. Include a .tsx file for the component and a .css file if needed.
+        
+        Description: "${prompt}"`,
+        "You are an expert full-stack software engineer who builds complete features. You respond only with the requested JSON object containing an array of files.",
+        schema
+    );
+    return result.files;
+};

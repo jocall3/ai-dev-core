@@ -1,10 +1,10 @@
-// Copyright James Burvel O’Callaghan III
-// President Citibank Demo Business Inc.
-
 {
+  "name": "Gemini AI Toolkit",
+  "description": "A developer toolkit featuring AI code explanation, commit generation, unit tests, and developer utilities.",
   "requestFramePermissions": [
     "microphone"
   ],
-  "name": "app",
-  "description": ""
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
