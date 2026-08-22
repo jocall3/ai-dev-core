@@ -1,16 +1,6 @@
-// Copyright James Burvel O’Callaghan III
-// President Citibank Demo Business Inc.
-
-import { GoogleGenAI, Type, GenerateContentResponse, FunctionDeclaration, FunctionCall, Part } from "@google/genai";
+import { Type, GenerateContentResponse, FunctionDeclaration, FunctionCall, Part } from "@google/genai";
 import type { GeneratedFile, StructuredPrSummary, StructuredExplanation, ColorTheme, RepoTemplate, CertificateDetails } from '../types.ts';
 import { logError } from './telemetryService.ts';
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API key not found. Please set the API_KEY environment variable.");
-}
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -18,14 +8,47 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function* streamContent(prompt: string | { parts: any[] }, systemInstruction: string, temperature = 0.5) {
     try {
-        const response = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash',
-            contents: prompt as any, // Cast to any to handle both string and parts object
-            config: { systemInstruction, temperature }
+        const response = await fetch('/api/gemini/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, systemInstruction, temperature })
         });
+        
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        if (!response.body) {
+            throw new Error("No response body returned from stream");
+        }
 
-        for await (const chunk of response) {
-            yield chunk.text;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
+            
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const dataStr = line.slice(6);
+                    if (dataStr === '[DONE]') {
+                        break;
+                    }
+                    try {
+                        const data = JSON.parse(dataStr);
+                        if (data.text) {
+                            yield data.text;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing stream data', e);
+                    }
+                }
+            }
         }
     } catch (error) {
         console.error("Error streaming from AI model:", error);
@@ -40,33 +63,34 @@ async function* streamContent(prompt: string | { parts: any[] }, systemInstructi
 
 async function generateContent(prompt: string, systemInstruction: string, temperature = 0.5): Promise<string> {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: { systemInstruction, temperature }
+        const response = await fetch('/api/gemini/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, systemInstruction, temperature })
         });
-        return response.text;
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        const data = await response.json();
+        return data.text;
     } catch (error) {
-         console.error("Error generating content from AI model:", error);
+        console.error("Error generating content from AI model:", error);
         logError(error as Error, { prompt, systemInstruction });
         throw error;
     }
 }
 
-
 async function generateJson<T>(prompt: string, systemInstruction: string, schema: any, temperature = 0.2): Promise<T> {
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: schema,
-                temperature,
-            }
+        const response = await fetch('/api/gemini/json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, systemInstruction, schema, temperature })
         });
-        return JSON.parse(response.text.trim());
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        return await response.json();
     } catch (error) {
         console.error("Error generating JSON from AI model:", error);
         logError(error as Error, { prompt, systemInstruction });
@@ -241,277 +265,20 @@ export const generateFlowchartStream = (code: string) => streamContent(
 
 export const generateImage = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/png',
-            },
+        const response = await fetch('/api/gemini/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
         });
-
-        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-        return `data:image/png;base64,${base64ImageBytes}`;
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        const data = await response.json();
+        return data.image;
     } catch (error) {
         console.error("Error generating image:", error);
         logError(error as Error, { prompt });
-        throw error;
-    }
-}
-
-export const summarizeNotesStream = (notes: string) => streamContent(
-    `Summarize the key points and action items from these notes:\n\n${notes}`,
-    "You are a helpful assistant that summarizes notes into a concise, actionable list."
-);
-
-export const generateJsonSchemaStream = (json: string) => streamContent(
-    `Generate a JSON Schema for the following JSON object. Respond with only the schema in a markdown JSON block.\n\n${json}`,
-    "You are an expert in data modeling. You only output valid JSON Schema."
-);
-
-export const formatSqlStream = (sql: string) => streamContent(
-    `Format the following SQL query. Respond with only the formatted query in a markdown SQL block.\n\n${sql}`,
-    "You are an expert SQL formatter. You only output formatted SQL."
-);
-
-export const generateUmlDiagramStream = (description: string) => streamContent(
-    `Generate a Mermaid.js diagram script for the following description. Respond with only the script in a markdown mermaid block.\n\nDescription: "${description}"`,
-    "You are an expert in software architecture and Mermaid.js diagrams. You only output valid Mermaid.js scripts."
-);
-
-export const scrapeHtmlStream = (html: string, prompt: string) => streamContent(
-    `From the following HTML, ${prompt}. Respond with only the requested data.\n\nHTML:\n${html}`,
-    "You are an expert web scraper. You extract data from HTML as requested by the user."
-);
-
-export const generateUserStoriesStream = (description: string) => streamContent(
-    `Generate a list of user stories in the "As a [user type], I want to [action], so that [benefit]" format based on this feature description. Include acceptance criteria for each story.\n\nDescription: ${description}`,
-    "You are an expert product manager who writes clear and concise user stories."
-);
-
-export const designSystemStream = (description: string) => streamContent(
-    `Create a high-level system design for the following application. Include components, data models, and potential technologies. Format it as a markdown document.\n\nApplication: ${description}`,
-    "You are a principal software architect designing scalable and robust systems."
-);
-
-export const generateTerraformConfigStream = (description: string) => streamContent(
-    `Generate a Terraform HCL configuration for the following infrastructure description. Respond with only the HCL code in a markdown block.\n\nDescription: ${description}`,
-    "You are a DevOps expert specializing in Terraform. You only output valid HCL code."
-);
-
-export const generateKubernetesManifestStream = (description: string) => streamContent(
-    `Generate a Kubernetes manifest (YAML) for the following service description. Respond with only the YAML in a markdown block.\n\nDescription: ${description}`,
-    "You are a DevOps expert specializing in Kubernetes. You only output valid Kubernetes YAML."
-);
-
-export const generateRoadmapStream = (goals: string) => streamContent(
-    `Create a product roadmap in markdown based on these goals. Organize it by quarters or phases and include key features for each.\n\nGoals: ${goals}`,
-    "You are an experienced product manager who creates clear and strategic product roadmaps."
-);
-
-export const generateProjectTimelineStream = (description: string) => streamContent(
-    `Create a project timeline in markdown based on this description. Break it down into phases (e.g., Week 1-2, Month 1) and list key tasks for each.\n\nProject: ${description}`,
-    "You are an experienced project manager."
-);
-
-export const suggestDesignPatternsStream = (problem: string) => streamContent(
-    `Based on the following software design problem, suggest one or two relevant design patterns. For each, explain what it is and why it's a good fit.\n\nProblem: ${problem}`,
-    "You are a senior software architect with deep knowledge of Gang of Four design patterns."
-);
-
-export const generateLandingPageStream = (description: string) => streamContent(
-    `Generate a complete, single-file HTML landing page for the following product. Include inline CSS for styling. Respond with only the HTML code in a markdown block.\n\nProduct: ${description}`,
-    "You are an expert web developer specializing in creating beautiful and effective landing pages."
-);
-
-export const generateDocumentationStream = (code: string) => streamContent(
-    `Generate comprehensive markdown documentation for the following code. Include sections for the overall purpose, parameters/props, return values, and a usage example.\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
-    "You are a technical writer who creates clear and helpful documentation for software developers."
-);
-
-export const generateCodeCommentsStream = (code: string) => streamContent(
-    `Add comments to the following code to explain what it does. Respond with the complete, commented code in a markdown block.\n\n\`\`\`\n${code}\n\`\`\``,
-    "You are a helpful AI programming assistant that writes clear, concise comments for code."
-);
-
-export const explainErrorStream = (error: string) => streamContent(
-    `Explain this error message and stack trace. What is the likely cause, and how can I fix it?\n\n${error}`,
-    "You are an expert debugger who helps programmers understand and solve errors."
-);
-
-export const generateReleaseNotesStream = (commits: string, version: string) => streamContent(
-    `Generate markdown-formatted release notes for version ${version} from the following list of commit messages. Group them into sections like "New Features", "Bug Fixes", and "Other Changes".\n\nCommits:\n${commits}`,
-    "You are an AI assistant that helps write clear and organized release notes."
-);
-
-export const suggestDependencyUpdatesStream = (packageJson: string) => streamContent(
-    `I have the following package.json file. For each dependency, check if there's a newer version available and suggest whether to update. Provide a brief summary of what's new in major version updates.\n\n${packageJson}`,
-    "You are an AI assistant that helps developers manage their dependencies."
-);
-
-export const generateApiFromSnippetStream = (code: string, description: string) => streamContent(
-    `Create a simple Node.js Express API endpoint that uses the following code snippet. The API should behave as described.\n\nDescription: ${description}\n\nCode:\n\`\`\`\n${code}\n\`\`\``,
-    "You are an expert backend developer who creates Node.js and Express APIs."
-);
-
-export const generateSdkFromApiSpecStream = (spec: string, language: string) => streamContent(
-    `Generate a client SDK in ${language} for the following OpenAPI specification. Respond with only the code in a markdown block.\n\nSpec:\n${spec}`,
-    "You are an AI assistant that generates client SDKs from OpenAPI specifications."
-);
-
-export const analyzeCodePerformanceStream = (code: string) => streamContent(
-    `Analyze the performance of the following code. Identify any bottlenecks or areas for optimization and suggest specific improvements.\n\n\`\`\`\n${code}\n\`\`\``,
-    "You are a senior software engineer specializing in code performance and optimization."
-);
-
-export const analyzeDependenciesStream = (packageJson: string) => streamContent(
-    `Analyze the dependencies in this package.json file. For each dependency, provide a brief description of what it does. Also, highlight any dependencies that might be unusually large or have known alternatives.\n\n${packageJson}`,
-    "You are a senior developer with a broad knowledge of the npm ecosystem."
-);
-
-export const scanCodeForVulnerabilitiesStream = (code: string) => streamContent(
-    `Scan the following code for common security vulnerabilities (like SQL injection, XSS, etc.). Provide a report in markdown format, detailing any findings and suggesting remediations.\n\n\`\`\`\n${code}\n\`\`\``,
-    "You are a security expert specializing in static code analysis."
-);
-
-export const generateInterviewQuestionsStream = (topic: string) => streamContent(
-    `Generate a list of 5-7 common interview questions and their answers for a software engineering role, focusing on the topic of "${topic}".`,
-    "You are an experienced engineering manager who conducts technical interviews."
-);
-
-export const generateTechBlogPostStream = (topic: string) => streamContent(
-    `Write a draft for a technical blog post on the topic: "${topic}". Include an introduction, a main body with code examples where appropriate, and a conclusion. Format as markdown.`,
-    "You are a skilled technical writer and developer advocate."
-);
-
-export const generateProfileReadmeStream = (about: string) => streamContent(
-    `Generate a cool and professional GitHub profile README.md file for a developer with the following description. Use markdown, add some flair with badges or emojis.\n\nAbout the user: ${about}`,
-    "You are a creative developer who knows how to make a great GitHub profile."
-);
-
-export const generateDockerfileStream = (description: string) => streamContent(
-    `Generate a production-ready, multi-stage Dockerfile for the following application description. Respond with only the Dockerfile content in a markdown block.\n\nApplication: ${description}`,
-    "You are a DevOps expert specializing in containerization with Docker."
-);
-
-export const generateCiCdPipelineStream = (description: string, provider: string) => streamContent(
-    `Generate a CI/CD pipeline configuration in YAML for ${provider} based on the following process. Respond with only the YAML code in a markdown block.\n\nProcess: ${description}`,
-    "You are a DevOps expert specializing in CI/CD automation."
-);
-
-export const estimateCloudCostStream = (description: string) => streamContent(
-    `Provide a high-level, estimated monthly cost breakdown for the following cloud infrastructure, assuming it's hosted on a major cloud provider like AWS or GCP. Provide the response in markdown.\n\nInfrastructure: ${description}`,
-    "You are a cloud cost optimization expert. You provide high-level estimates to help with budgeting."
-);
-
-export const generateApiDocsStream = (code: string) => streamContent(
-    `Generate API documentation in markdown format for the following API endpoint code. Include the endpoint, HTTP method, parameters, and example request/response.\n\n\`\`\`\n${code}\n\`\`\``,
-    "You are a technical writer who specializes in creating clear API documentation."
-);
-
-export const generateChatbotSystemPromptStream = (knowledgeBase: string) => streamContent(
-    `Based on the following knowledge base, create a concise and effective "system prompt" for a customer support chatbot. The prompt should instruct the AI to be helpful, friendly, and to only answer questions based on the provided text.\n\nKnowledge Base:\n${knowledgeBase}`,
-    "You are an expert in designing prompts for large language models."
-);
-
-// New function for SASS
-export const compileSassStream = (scss: string) => streamContent(
-    `You are an expert SASS/SCSS compiler. Convert the following SCSS code to CSS. Your response should contain ONLY the valid CSS code, without any explanation or markdown fences.
-    
-    SCSS Input:
-    \`\`\`scss
-    ${scss}
-    \`\`\`
-    `,
-    "You are a SASS/SCSS compiler. You only output valid CSS code."
-);
-
-
-// New function for SSL certs
-export const parseCertificateDetails = (pem: string): Promise<CertificateDetails> => {
-    const schema = {
-        type: Type.OBJECT,
-        properties: {
-            subject: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
-            issuer: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
-            validFrom: { type: Type.STRING, description: 'The start date of validity in UTC format.' },
-            validTo: { type: Type.STRING, description: 'The end date of validity in UTC format.' },
-            serialNumber: { type: Type.STRING }
-        },
-        required: ["subject", "issuer", "validFrom", "validTo", "serialNumber"]
-    };
-    return generateJson<CertificateDetails>(
-        `Parse the following PEM-encoded SSL certificate and provide its key details.\n\nCertificate:\n${pem}`,
-        "You are an expert in parsing security certificates. Respond with only the requested JSON object.",
-        schema
-    );
-};
-
-export const generateDriveLabelRequest = (prompt: string): Promise<any> => {
-    const driveLabelSchema = {
-        type: Type.OBJECT,
-        properties: {
-            properties: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING, description: "The title of the label to be applied." }
-                },
-                 required: ['title']
-            },
-            updateMask: {
-                type: Type.STRING,
-                description: "The fields to update, typically 'properties.title'."
-            }
-        },
-        required: ["properties", "updateMask"]
-    };
-    return generateJson<any>(
-        `Based on the user's request, construct a JSON object that would be used to update a Google Drive Label. The JSON should conform to the provided schema for a 'DeltaUpdateLabelRequest'. Pay close attention to the properties the user wants to set.\n\nUser Request: "${prompt}"`,
-        "You are an AI assistant that translates natural language into structured JSON API requests for the Google Drive Labels API. You only output the valid JSON object.",
-        driveLabelSchema
-    );
-};
-
-
-// --- Unified Feature Functions (JSON) ---
-
-export interface CommandResponse {
-    functionCalls?: FunctionCall[];
-    text?: string;
-}
-
-export const getInferenceFunction = async (prompt: string, functionDeclarations: FunctionDeclaration[], knowledgeBase: string): Promise<CommandResponse> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                systemInstruction: `You are the AI command center for a developer toolkit. Your goal is to understand the user's request and call the appropriate function to activate a tool. Use the provided knowledge base to map user requests to the correct 'featureId' for the 'navigateTo' or 'runFeatureWithInput' functions. If the user provides data directly in the prompt (like a code snippet), use the 'runFeatureWithInput' function. Otherwise, use 'navigateTo'. Do not make up feature IDs; only use the ones provided in the knowledge base. If no specific tool seems appropriate, respond with helpful text.
-
-Knowledge Base:
-${knowledgeBase}`,
-                tools: [{ functionDeclarations }],
-            }
-        });
-
-        const parts = response.candidates?.[0]?.content?.parts;
-        if (parts) {
-            const functionCalls = parts
-                .filter(part => 'functionCall' in part)
-                // @ts-ignore because the SDK's Part type isn't perfectly narrowed
-                .map(part => part.functionCall as FunctionCall);
-
-            if (functionCalls.length > 0) {
-                return { functionCalls };
-            }
-        }
-
-        return { text: response.text };
-
-    } catch (error) {
-        console.error("Error inferring function call:", error);
-        logError(error as Error, { prompt });
-        throw new Error("The AI assistant could not process your request.");
+        throw new Error("Could not generate image.");
     }
 };
 
@@ -529,6 +296,155 @@ const prSummarySchema = {
         }
     },
     required: ['title', 'summary', 'changes']
+};
+
+
+export const summarizeNotesStream = (notes: string) => streamContent(
+    `Summarize the following meeting notes into key takeaways and action items.\n\nNotes:\n${notes}`,
+    "You are an expert executive assistant."
+);
+export const generateJsonSchemaStream = (json: string) => streamContent(
+    `Generate a JSON Schema for the following JSON object.\n\nJSON:\n${json}`,
+    "You are a data architect specializing in JSON Schema."
+);
+export const formatSqlStream = (sql: string) => streamContent(
+    `Format the following SQL query to be highly readable.\n\nSQL:\n${sql}`,
+    "You are a DBA who writes perfectly formatted SQL."
+);
+export const generateUmlDiagramStream = (description: string) => streamContent(
+    `Generate a PlantUML diagram based on this description.\n\nDescription:\n${description}`,
+    "You are a software architect who creates clear UML diagrams."
+);
+export const scrapeHtmlStream = (html: string, prompt: string) => streamContent(
+    `Extract information from this HTML based on the prompt.\n\nPrompt: ${prompt}\n\nHTML:\n${html}`,
+    "You are a data extraction bot."
+);
+export const generateUserStoriesStream = (description: string) => streamContent(
+    `Generate Agile user stories with acceptance criteria based on this feature description.\n\nFeature:\n${description}`,
+    "You are an expert Product Manager."
+);
+export const designSystemStream = (description: string) => streamContent(
+    `Design a system architecture for this application description.\n\nApp:\n${description}`,
+    "You are a Principal Cloud Architect."
+);
+export const generateTerraformConfigStream = (description: string) => streamContent(
+    `Generate Terraform HCL code for this infrastructure description.\n\nInfra:\n${description}`,
+    "You are an expert DevOps engineer specializing in Terraform."
+);
+export const generateKubernetesManifestStream = (description: string) => streamContent(
+    `Generate a Kubernetes YAML manifest for this deployment description.\n\nDeploy:\n${description}`,
+    "You are a Kubernetes expert."
+);
+export const generateRoadmapStream = (goals: string) => streamContent(
+    `Generate a product roadmap based on these goals.\n\nGoals:\n${goals}`,
+    "You are a strategic Product Manager."
+);
+export const generateProjectTimelineStream = (description: string) => streamContent(
+    `Create a project timeline with milestones for this project.\n\nProject:\n${description}`,
+    "You are a seasoned Project Manager."
+);
+export const suggestDesignPatternsStream = (problem: string) => streamContent(
+    `Suggest software design patterns to solve this problem.\n\nProblem:\n${problem}`,
+    "You are a Software Architect expert in Gang of Four design patterns."
+);
+export const generateLandingPageStream = (description: string) => streamContent(
+    `Generate HTML/CSS for a landing page based on this description.\n\nDescription:\n${description}`,
+    "You are an expert Frontend Developer."
+);
+export const generateDocumentationStream = (code: string) => streamContent(
+    `Generate comprehensive markdown documentation for the following code.\n\nCode:\n${code}`,
+    "You are a Technical Writer."
+);
+export const generateCodeCommentsStream = (code: string) => streamContent(
+    `Add comments to the following code.\n\nCode:\n${code}`,
+    "You are a helpful AI programming assistant."
+);
+export const explainErrorStream = (error: string) => streamContent(
+    `Explain this error message and stack trace.\n\nError:\n${error}`,
+    "You are an expert debugger."
+);
+export const generateReleaseNotesStream = (commits: string, version: string) => streamContent(
+    `Generate release notes for version ${version} from these commits.\n\nCommits:\n${commits}`,
+    "You are an AI assistant that writes release notes."
+);
+export const suggestDependencyUpdatesStream = (packageJson: string) => streamContent(
+    `Suggest updates for this package.json.\n\nPackage.json:\n${packageJson}`,
+    "You are an expert JavaScript developer."
+);
+export const generateApiFromSnippetStream = (code: string, description: string) => streamContent(
+    `Create a Node.js Express API endpoint.\n\nDesc: ${description}\n\nCode:\n${code}`,
+    "You are an expert backend developer."
+);
+export const generateSdkFromApiSpecStream = (spec: string, language: string) => streamContent(
+    `Generate a client SDK in ${language} for this OpenAPI spec.\n\nSpec:\n${spec}`,
+    "You are an API developer."
+);
+export const analyzeCodePerformanceStream = (code: string) => streamContent(
+    `Analyze performance bottlenecks in this code.\n\nCode:\n${code}`,
+    "You are a performance optimization expert."
+);
+export const analyzeDependenciesStream = (packageJson: string) => streamContent(
+    `Analyze these dependencies for bloat or alternatives.\n\nPackage.json:\n${packageJson}`,
+    "You are an npm ecosystem expert."
+);
+export const scanCodeForVulnerabilitiesStream = (code: string) => streamContent(
+    `Scan this code for security vulnerabilities.\n\nCode:\n${code}`,
+    "You are a security expert."
+);
+export const generateInterviewQuestionsStream = (topic: string) => streamContent(
+    `Generate interview questions for: ${topic}`,
+    "You are an engineering manager."
+);
+export const generateTechBlogPostStream = (topic: string) => streamContent(
+    `Write a technical blog post about: ${topic}`,
+    "You are a Developer Advocate."
+);
+export const generateProfileReadmeStream = (about: string) => streamContent(
+    `Generate a GitHub profile README for:\n\n${about}`,
+    "You are a creative developer."
+);
+export const generateDockerfileStream = (description: string) => streamContent(
+    `Generate a Dockerfile for:\n\n${description}`,
+    "You are a DevOps expert."
+);
+export const generateCiCdPipelineStream = (description: string, provider: string) => streamContent(
+    `Generate a CI/CD pipeline for ${provider}.\n\nProcess:\n${description}`,
+    "You are a DevOps automation expert."
+);
+export const estimateCloudCostStream = (description: string) => streamContent(
+    `Estimate cloud costs for this infrastructure:\n\n${description}`,
+    "You are a FinOps expert."
+);
+export const generateApiDocsStream = (code: string) => streamContent(
+    `Generate API documentation for this code:\n\n${code}`,
+    "You are a technical writer."
+);
+export const generateChatbotSystemPromptStream = (knowledgeBase: string) => streamContent(
+    `Create a chatbot system prompt based on this knowledge base:\n\n${knowledgeBase}`,
+    "You are a prompt engineer."
+);
+export const compileSassStream = (scss: string) => streamContent(
+    `Convert this SCSS to CSS.\n\nSCSS:\n${scss}`,
+    "You are a SASS/SCSS compiler."
+);
+
+export const parseCertificateDetails = (pem: string): Promise<CertificateDetails> => {
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            subject: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
+            issuer: { type: Type.OBJECT, properties: { commonName: {type: Type.STRING}, organization: {type: Type.STRING}, country: {type: Type.STRING} }, required: ['commonName'] },
+            validFrom: { type: Type.STRING },
+            validTo: { type: Type.STRING },
+            serialNumber: { type: Type.STRING }
+        },
+        required: ["subject", "issuer", "validFrom", "validTo", "serialNumber"]
+    };
+    return generateJson<CertificateDetails>(`Parse this certificate:\n${pem}`, "You are a security expert.", schema);
+};
+
+export const generateDriveLabelRequest = (prompt: string): Promise<any> => {
+    return generateJson<any>(`Generate drive label request for: ${prompt}`, "You are a google drive expert.", { type: Type.OBJECT, properties: {}, additionalProperties: true });
 };
 
 export const generatePrSummaryStructured = (diff: string): Promise<StructuredPrSummary> => generateJson<StructuredPrSummary>(
@@ -639,4 +555,26 @@ export const generateFeature = async (prompt: string): Promise<GeneratedFile[]> 
         schema
     );
     return result.files;
+};
+export interface CommandResponse {
+    functionCalls?: FunctionCall[];
+    text?: string;
+}
+
+export const getInferenceFunction = async (prompt: string, functionDeclarations: FunctionDeclaration[], knowledgeBase: string): Promise<CommandResponse> => {
+    try {
+        const response = await fetch('/api/gemini/inference', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, functionDeclarations, knowledgeBase })
+        });
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error inferring function call:", error);
+        logError(error as Error, { prompt });
+        throw new Error("The AI assistant could not process your request.");
+    }
 };
